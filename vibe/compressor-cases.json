@@ -1,0 +1,1147 @@
+{
+ "_comment": [
+  "Shared corpus for the rolling-context compressor. ONE source, THREE consumers:",
+  "  1. D:/Lean/proofs/Proofs/Compressor.lean section 8 - the CORPUS block there is",
+  "     GENERATED from this file. `check-compressor-drift.py --emit-lean` renders it;",
+  "     the checker regenerates and diffs, so the Lean file cannot drift from here.",
+  "  2. compressor.py - every case is run through the real RollingCompressor and every",
+  "     expected value below is compared.",
+  "  3. check-compressor-drift.py - the runner.",
+  "",
+  "The expected values are LEAN's. Lean is the specification; compressor.py is the",
+  "implementation under test. If they disagree, the Python is wrong until someone",
+  "changes the spec on purpose.",
+  "",
+  "Message kinds map to Lean constructors and to Mistral-shaped dicts:",
+  "  sys/usr/ast          - plain system / user / assistant",
+  "  usrPin               - user message containing PIN_MARKER",
+  "  astCall              - assistant carrying tool_calls (name+arguments count toward chars)",
+  "  toolRes / toolResPin - role:'tool' result message",
+  "  sumMsg / sumMsgPin   - a message carrying SUMMARY_MARKER (proxy-generated)",
+  "'n' is the exact _count_chars value of that message.",
+  "",
+  "policy.summ is the char count of the WHOLE summary message, not of the model's",
+  "text: it is summary_msg_overhead (212) + len(summary text). policy.ack must equal",
+  "len(ACK_TEXT) = 160, because the ack is a fixed literal the code writes itself.",
+  "The checker recomputes both from compressor.py and fails if they moved."
+ ],
+ "summary_msg_overhead": 229,
+ "ack_chars": 160,
+ "cases": [
+  {
+   "name": "plain",
+   "why": "Baseline. Ordinary conversation, no pins, no previous summary.",
+   "msgs": [
+    [
+     "sys",
+     3000
+    ],
+    [
+     "usr",
+     1000
+    ],
+    [
+     "ast",
+     2000
+    ],
+    [
+     "usr",
+     1500
+    ],
+    [
+     "ast",
+     2500
+    ],
+    [
+     "usr",
+     1200
+    ],
+    [
+     "ast",
+     1800
+    ],
+    [
+     "usr",
+     900
+    ],
+    [
+     "ast",
+     1100
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 812,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 1,
+    "fki": 5,
+    "cut": 5,
+    "span": 7000,
+    "pinch": 0,
+    "inch": 15000,
+    "inpin": 0,
+    "outcome": "ok",
+    "step_len": 7,
+    "step_chars": 8972,
+    "step_pins": 0,
+    "run_len": 7,
+    "run_chars": 8972,
+    "run_pins": 0
+   }
+  },
+  {
+   "name": "d3_sysheavy",
+   "why": "DEFECT D3 REGRESSION. System prompt is 31,107 of 33,607 chars (92.6%), the shape measured live. With the budget taken over the whole array the backward walk never breaks, _find_keep_index returns head, and compress() refuses forever. With the budget over the body only it cuts at 3. If this case ever reports nothingToCompress, D3 is back.",
+   "msgs": [
+    [
+     "sys",
+     31107
+    ],
+    [
+     "usr",
+     500
+    ],
+    [
+     "ast",
+     600
+    ],
+    [
+     "usr",
+     400
+    ],
+    [
+     "ast",
+     300
+    ],
+    [
+     "usr",
+     450
+    ],
+    [
+     "ast",
+     250
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 372,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 1,
+    "fki": 3,
+    "cut": 3,
+    "span": 1100,
+    "pinch": 0,
+    "inch": 33607,
+    "inpin": 0,
+    "outcome": "ok",
+    "step_len": 7,
+    "step_chars": 33039,
+    "step_pins": 0,
+    "run_len": 7,
+    "run_chars": 33039,
+    "run_pins": 0
+   }
+  },
+  {
+   "name": "tool_walk",
+   "why": "_safe_cut exercised on BOTH walk conditions at once: the clamped cut lands on a tool result (tail orphan) and walking back hits an assistant carrying tool_calls (split group). Ends at 2, four steps below where the ratio wanted it.",
+   "msgs": [
+    [
+     "sys",
+     1000
+    ],
+    [
+     "usr",
+     2000
+    ],
+    [
+     "astCall",
+     3000
+    ],
+    [
+     "toolRes",
+     4000
+    ],
+    [
+     "toolRes",
+     3500
+    ],
+    [
+     "toolRes",
+     3000
+    ],
+    [
+     "toolRes",
+     2500
+    ],
+    [
+     "usr",
+     1000
+    ],
+    [
+     "ast",
+     900
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 372,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 1,
+    "fki": 5,
+    "cut": 2,
+    "span": 2000,
+    "pinch": 0,
+    "inch": 20900,
+    "inpin": 0,
+    "outcome": "ok",
+    "step_len": 10,
+    "step_chars": 19432,
+    "step_pins": 0,
+    "run_len": 10,
+    "run_chars": 19432,
+    "run_pins": 0
+   }
+  },
+  {
+   "name": "existing_summary",
+   "why": "Second and later rounds: a previous [summary, ack] pair sits at index 1-2, so start_idx = head + 2. The old pair is inside the replaced span and is dropped, not re-summarized.",
+   "msgs": [
+    [
+     "sys",
+     1000
+    ],
+    [
+     "sumMsg",
+     5000
+    ],
+    [
+     "ast",
+     800
+    ],
+    [
+     "usr",
+     2000
+    ],
+    [
+     "ast",
+     3000
+    ],
+    [
+     "usr",
+     1500
+    ],
+    [
+     "ast",
+     2500
+    ],
+    [
+     "usr",
+     1200
+    ],
+    [
+     "ast",
+     1300
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 812,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 3,
+    "fki": 5,
+    "cut": 5,
+    "span": 10800,
+    "pinch": 0,
+    "inch": 18300,
+    "inpin": 0,
+    "outcome": "ok",
+    "step_len": 7,
+    "step_chars": 8472,
+    "step_pins": 0,
+    "run_len": 7,
+    "run_chars": 8472,
+    "run_pins": 0
+   }
+  },
+  {
+   "name": "pin_mid",
+   "why": "HARD MEMORY, the anti-vacuity witness. The pin at index 3 is INSIDE the replaced span [1,5) - without the mechanism it is destroyed. run_pins=1 shows it survives compression to a fixpoint, so pinned_never_cut is not being read against an empty set.",
+   "msgs": [
+    [
+     "sys",
+     1000
+    ],
+    [
+     "usr",
+     2000
+    ],
+    [
+     "ast",
+     3000
+    ],
+    [
+     "usrPin",
+     2500
+    ],
+    [
+     "ast",
+     4000
+    ],
+    [
+     "usr",
+     1500
+    ],
+    [
+     "ast",
+     1000
+    ],
+    [
+     "usr",
+     1200
+    ],
+    [
+     "ast",
+     1300
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 812,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 1,
+    "fki": 5,
+    "cut": 5,
+    "span": 11500,
+    "pinch": 2500,
+    "inch": 17500,
+    "inpin": 1,
+    "outcome": "ok",
+    "step_len": 8,
+    "step_chars": 9472,
+    "step_pins": 1,
+    "run_len": 8,
+    "run_chars": 9472,
+    "run_pins": 1
+   }
+  },
+  {
+   "name": "pin_saturated",
+   "why": "PIN SATURATION. Pins account for all 17,000 chars of the span, so no summary of any length can shrink this. Must refuse with pinBudget BEFORE calling the summarizer, and must leave the conversation byte-identical.",
+   "msgs": [
+    [
+     "sys",
+     1000
+    ],
+    [
+     "usrPin",
+     9000
+    ],
+    [
+     "usrPin",
+     8000
+    ],
+    [
+     "usr",
+     500
+    ],
+    [
+     "ast",
+     600
+    ],
+    [
+     "usr",
+     700
+    ],
+    [
+     "ast",
+     800
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 372,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 1,
+    "fki": 3,
+    "cut": 3,
+    "span": 17000,
+    "pinch": 17000,
+    "inch": 20600,
+    "inpin": 2,
+    "outcome": "pinBudget",
+    "step_len": 7,
+    "step_chars": 20600,
+    "step_pins": 2,
+    "run_len": 7,
+    "run_chars": 20600,
+    "run_pins": 2
+   }
+  },
+  {
+   "name": "pin_tool_ineligible",
+   "why": "A pin on a tool result is INELIGIBLE - honouring it would orphan the call. pinch=0 proves it is not retained; the checker separately asserts it is REPORTED in pin_rejections rather than silently dropped.",
+   "msgs": [
+    [
+     "sys",
+     1000
+    ],
+    [
+     "usr",
+     2000
+    ],
+    [
+     "astCall",
+     3000
+    ],
+    [
+     "toolResPin",
+     4000
+    ],
+    [
+     "usr",
+     1500
+    ],
+    [
+     "ast",
+     1000
+    ],
+    [
+     "usr",
+     1200
+    ],
+    [
+     "ast",
+     1300
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 372,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 1,
+    "fki": 4,
+    "cut": 4,
+    "span": 9000,
+    "pinch": 0,
+    "inch": 15000,
+    "inpin": 0,
+    "outcome": "ok",
+    "step_len": 7,
+    "step_chars": 6532,
+    "step_pins": 0,
+    "run_len": 7,
+    "run_chars": 6532,
+    "run_pins": 0
+   }
+  },
+  {
+   "name": "pin_synthetic",
+   "why": "A summary carrying the pin marker must NOT pin itself. Identical in every value to existing_summary: proof the pin is ignored. Without this the proxy would retain summary N verbatim AND generate summary N+1 every round - an unbounded stack.",
+   "msgs": [
+    [
+     "sys",
+     1000
+    ],
+    [
+     "sumMsgPin",
+     5000
+    ],
+    [
+     "ast",
+     800
+    ],
+    [
+     "usr",
+     2000
+    ],
+    [
+     "ast",
+     3000
+    ],
+    [
+     "usr",
+     1500
+    ],
+    [
+     "ast",
+     2500
+    ],
+    [
+     "usr",
+     1200
+    ],
+    [
+     "ast",
+     1300
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 812,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 3,
+    "fki": 5,
+    "cut": 5,
+    "span": 10800,
+    "pinch": 0,
+    "inch": 18300,
+    "inpin": 0,
+    "outcome": "ok",
+    "step_len": 7,
+    "step_chars": 8472,
+    "step_pins": 0,
+    "run_len": 7,
+    "run_chars": 8472,
+    "run_pins": 0
+   }
+  },
+  {
+   "name": "short",
+   "why": "len - head <= 4: the early return. Nothing to do, and it must say so rather than cut something.",
+   "msgs": [
+    [
+     "sys",
+     1000
+    ],
+    [
+     "usr",
+     2000
+    ],
+    [
+     "ast",
+     3000
+    ],
+    [
+     "usr",
+     1500
+    ],
+    [
+     "ast",
+     2500
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 372,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 1,
+    "fki": 1,
+    "cut": 1,
+    "span": 0,
+    "pinch": 0,
+    "inch": 10000,
+    "inpin": 0,
+    "outcome": "nothingToCompress",
+    "step_len": 5,
+    "step_chars": 10000,
+    "step_pins": 0,
+    "run_len": 5,
+    "run_chars": 10000,
+    "run_pins": 0
+   }
+  },
+  {
+   "name": "summary_too_large",
+   "why": "The model returned a summary bigger than the span it replaces. Post-hoc refusal: only decidable after the API call, which is why it is a separate code from pinBudget.",
+   "msgs": [
+    [
+     "sys",
+     3000
+    ],
+    [
+     "usr",
+     1000
+    ],
+    [
+     "ast",
+     2000
+    ],
+    [
+     "usr",
+     1500
+    ],
+    [
+     "ast",
+     2500
+    ],
+    [
+     "usr",
+     1200
+    ],
+    [
+     "ast",
+     1800
+    ],
+    [
+     "usr",
+     900
+    ],
+    [
+     "ast",
+     1100
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 7000,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 1,
+    "fki": 5,
+    "cut": 5,
+    "span": 7000,
+    "pinch": 0,
+    "inch": 15000,
+    "inpin": 0,
+    "outcome": "summaryTooLarge",
+    "step_len": 9,
+    "step_chars": 15000,
+    "step_pins": 0,
+    "run_len": 9,
+    "run_chars": 15000,
+    "run_pins": 0
+   }
+  },
+  {
+   "name": "all_system",
+   "why": "Degenerate: nothing but system messages. head = len. Must not index off the end.",
+   "msgs": [
+    [
+     "sys",
+     1000
+    ],
+    [
+     "sys",
+     2000
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 372,
+    "ack": 160
+   },
+   "expect": {
+    "head": 2,
+    "start": 2,
+    "fki": 2,
+    "cut": 2,
+    "span": 0,
+    "pinch": 0,
+    "inch": 3000,
+    "inpin": 0,
+    "outcome": "nothingToCompress",
+    "step_len": 2,
+    "step_chars": 3000,
+    "step_pins": 0,
+    "run_len": 2,
+    "run_chars": 3000,
+    "run_pins": 0
+   }
+  },
+  {
+   "name": "boundary_exact",
+   "why": "MUTATION-DRIVEN. The backward walk hits the budget EXACTLY (accumulated == target_chars at index 4), which is the only place `>` and `>=` differ in the break test. Added because mutation M16 flipped that comparison and the entire corpus still passed - an off-by-one in the walk was invisible. It now moves the cut from 4 to 5. This case also runs TWO compression rounds to a fixpoint (13,000 -> 7,972 -> 5,972), so it exercises `run` non-trivially rather than as a single step.",
+   "msgs": [
+    [
+     "sys",
+     1000
+    ],
+    [
+     "usr",
+     2000
+    ],
+    [
+     "ast",
+     2000
+    ],
+    [
+     "usr",
+     2000
+    ],
+    [
+     "usr",
+     2000
+    ],
+    [
+     "ast",
+     1000
+    ],
+    [
+     "ast",
+     1000
+    ],
+    [
+     "usr",
+     1000
+    ],
+    [
+     "ast",
+     1000
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 812,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 1,
+    "fki": 4,
+    "cut": 4,
+    "span": 6000,
+    "pinch": 0,
+    "inch": 13000,
+    "inpin": 0,
+    "outcome": "ok",
+    "step_len": 8,
+    "step_chars": 7972,
+    "step_pins": 0,
+    "run_len": 7,
+    "run_chars": 5972,
+    "run_pins": 0
+   }
+  },
+  {
+   "name": "ratio_3_10",
+   "why": "Non-trivial keep ratio through the REAL path (target_tokens=3, real_token_count=10), not the 1/2 fallback. This is the case that catches a reintroduced float: 12000*3//10 = 3600 exactly, and any float rounding shows up as a different cut.",
+   "msgs": [
+    [
+     "sys",
+     3000
+    ],
+    [
+     "usr",
+     1000
+    ],
+    [
+     "ast",
+     2000
+    ],
+    [
+     "usr",
+     1500
+    ],
+    [
+     "ast",
+     2500
+    ],
+    [
+     "usr",
+     1200
+    ],
+    [
+     "ast",
+     1800
+    ],
+    [
+     "usr",
+     900
+    ],
+    [
+     "ast",
+     1100
+    ]
+   ],
+   "policy": {
+    "num": 3,
+    "den": 10,
+    "summ": 372,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 1,
+    "fki": 5,
+    "cut": 5,
+    "span": 7000,
+    "pinch": 0,
+    "inch": 15000,
+    "inpin": 0,
+    "outcome": "ok",
+    "step_len": 7,
+    "step_chars": 8532,
+    "step_pins": 0,
+    "run_len": 7,
+    "run_chars": 8532,
+    "run_pins": 0
+   }
+  },
+  {
+   "name": "pin_multi_round",
+   "why": "D-A REGRESSION GUARD, multi-round. The input is the shape a conversation has AFTER one compression: [system, summary, ack, PINNED, ...tail]. Compressing it again is round two, and start=3 shows the previous [summary, ack] pair is skipped while the pin at index 3 sits exactly where the server's key-chain walk begins. inpin=1 and run_pins=1 together say the pin is inside the replaced span AND still present at the fixpoint, i.e. it survives a SECOND round rather than only the first. Defect D-A made the server hash a chain starting on that pinned message, so no later request ever matched: 46 paid summarizer calls against 7 and a 4.1x context blowup with /health green. Lean's `run` iterates to a fixpoint, so this case is the multi-round witness the corpus previously lacked - every other pinned case starts from an UNcompressed conversation and so only ever exercises round one.",
+   "msgs": [
+    [
+     "sys",
+     1000
+    ],
+    [
+     "sumMsg",
+     812
+    ],
+    [
+     "ast",
+     160
+    ],
+    [
+     "usrPin",
+     2500
+    ],
+    [
+     "usr",
+     3000
+    ],
+    [
+     "ast",
+     4000
+    ],
+    [
+     "usr",
+     1500
+    ],
+    [
+     "ast",
+     1000
+    ],
+    [
+     "usr",
+     1200
+    ],
+    [
+     "ast",
+     1300
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 812,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 3,
+    "fki": 6,
+    "cut": 6,
+    "span": 10472,
+    "pinch": 2500,
+    "inch": 16472,
+    "inpin": 1,
+    "outcome": "ok",
+    "step_len": 8,
+    "step_chars": 9472,
+    "step_pins": 1,
+    "run_len": 8,
+    "run_chars": 9472,
+    "run_pins": 1
+   }
+  },
+  {
+   "name": "pin_assistant_ineligible",
+   "why": "D-O, the self-pin witness. Byte for byte the same conversation as `pin_mid`, except the pinned message at index 2 is an ASSISTANT turn carrying a valid user-minted [PIN:...]...[/PIN] span - i.e. the model has copied the user's pin verbatim into its own reply, which is all the capability it needs and which authenticated against the shipped code before review 5. inpin=0 and pinch=0 say it is refused. The sharp part is the comparison: as a user pin the identical 2500-char message retains 2500 chars (pin_mid, step_chars=9472); as an assistant pin it retains 0 (step_chars=6972). Without this case `pinned_is_user` is read against a corpus containing no assistant pin at all, i.e. vacuously. MEASURED cost of not having it: 82.4% -> 13.5% compression, 110,928 chars of model output pinned.",
+   "msgs": [
+    [
+     "sys",
+     1000
+    ],
+    [
+     "usr",
+     2000
+    ],
+    [
+     "astPin",
+     2500
+    ],
+    [
+     "usr",
+     3000
+    ],
+    [
+     "ast",
+     4000
+    ],
+    [
+     "usr",
+     1500
+    ],
+    [
+     "ast",
+     1000
+    ],
+    [
+     "usr",
+     1200
+    ],
+    [
+     "ast",
+     1300
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 812,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 1,
+    "fki": 5,
+    "cut": 5,
+    "span": 11500,
+    "pinch": 0,
+    "inch": 17500,
+    "inpin": 0,
+    "outcome": "ok",
+    "step_len": 7,
+    "step_chars": 6972,
+    "step_pins": 0,
+    "run_len": 7,
+    "run_chars": 6972,
+    "run_pins": 0
+   }
+  },
+  {
+   "name": "pin_inline_span",
+   "why": "RETENTION EQUALS AUTHENTICATION (D-P + `pinExtract_le_pinChars`). A 2500-char user message carrying a 400-char pin span, which is the shape defect D-P made impossible: before review 5 the MAC covered the whole message, so a pin only authenticated when the pinned text was the ENTIRE message and an inline pin was rejected `unauthenticated`. Delimiting the span fixed that and immediately created the opposite risk - a tiny signed span dragging an unbounded payload over the boundary. pinch=400, not 2500, is the witness that it does not: only the authenticated span crosses. Every other pin case in this corpus has pinChars = chars, so without this one `pinExtract_le_pinChars` is read against a set where the bound is an equality and proves nothing.",
+   "msgs": [
+    [
+     "sys",
+     1000
+    ],
+    [
+     "usr",
+     2000
+    ],
+    [
+     "usrPinSpan",
+     2500,
+     400
+    ],
+    [
+     "usr",
+     3000
+    ],
+    [
+     "ast",
+     4000
+    ],
+    [
+     "usr",
+     1500
+    ],
+    [
+     "ast",
+     1000
+    ],
+    [
+     "usr",
+     1200
+    ],
+    [
+     "ast",
+     1300
+    ]
+   ],
+   "policy": {
+    "num": 1,
+    "den": 2,
+    "summ": 812,
+    "ack": 160
+   },
+   "expect": {
+    "head": 1,
+    "start": 1,
+    "fki": 5,
+    "cut": 5,
+    "span": 11500,
+    "pinch": 400,
+    "inch": 17500,
+    "inpin": 1,
+    "outcome": "ok",
+    "step_len": 8,
+    "step_chars": 7372,
+    "step_pins": 1,
+    "run_len": 8,
+    "run_chars": 7372,
+    "run_pins": 1
+   }
+  },
+  {
+   "name": "sys_boundary_tail",
+   "why": "Interior system message the kept TAIL would start with: the ack (assistant) would land before it, a 400. Exercises disjunct 3, previously UNCOVERED. DISTRIBUTION, measured after the fact so nobody deletes this as dead weight: a router run of 6 transcripts / 182 messages (user 6, assistant 87, tool 89) contained ZERO dangling calls and ZERO interior system messages. That is NOT evidence against these cases. A dangling call is what an INTERRUPTED or ERRORED turn produces - a timeout, a 400, a killed subagent - and that run had none. Measuring clean traffic to judge a guard that exists for the non-clean case is the wrong instrument. These two cases are MUTATION DETECTORS over the code, not distribution samples: what they buy is that deleting a disjunct fails the gate. Real-world frequency of the shape is a separate question and is currently 0/182.",
+   "msgs": [
+    [
+     "sys",
+     3000
+    ],
+    [
+     "usr",
+     1000
+    ],
+    [
+     "ast",
+     2000
+    ],
+    [
+     "usr",
+     1500
+    ],
+    [
+     "ast",
+     2500
+    ],
+    [
+     "sys",
+     3200
+    ],
+    [
+     "usr",
+     1200
+    ],
+    [
+     "ast",
+     1800
+    ],
+    [
+     "usr",
+     900
+    ],
+    [
+     "ast",
+     1100
+    ]
+   ],
+   "policy": {
+    "ack": 160,
+    "den": 2,
+    "num": 1,
+    "summ": 812
+   },
+   "expect": {
+    "head": 1,
+    "start": 1,
+    "fki": 6,
+    "cut": 4,
+    "span": 4500,
+    "pinch": 0,
+    "inch": 18200,
+    "inpin": 0,
+    "outcome": "ok",
+    "step_len": 9,
+    "step_chars": 14672,
+    "step_pins": 0,
+    "run_len": 9,
+    "run_chars": 14672,
+    "run_pins": 0
+   }
+  },
+  {
+   "name": "dangling_call",
+   "policy": {
+    "ack": 160,
+    "den": 2,
+    "num": 1,
+    "summ": 812
+   },
+   "msgs": [
+    [
+     "sys",
+     3000
+    ],
+    [
+     "usr",
+     1000
+    ],
+    [
+     "ast",
+     2000
+    ],
+    [
+     "usr",
+     1500
+    ],
+    [
+     "astCall",
+     400
+    ],
+    [
+     "usr",
+     1000
+    ],
+    [
+     "ast",
+     2500
+    ],
+    [
+     "usr",
+     1200
+    ],
+    [
+     "ast",
+     1800
+    ]
+   ],
+   "why": "Prefix would end on an assistant turn carrying an unanswered tool_call. In a well-formed transcript that call is followed by its result, so disjunct 4 fires at the same boundary and MASKS disjunct 1 - MEASURED: removing D1 from _safe_cut changed no expected value anywhere in the 16-case corpus. This shape discriminates it. DISTRIBUTION, measured after the fact so nobody deletes this as dead weight: a router run of 6 transcripts / 182 messages (user 6, assistant 87, tool 89) contained ZERO dangling calls and ZERO interior system messages. That is NOT evidence against these cases. A dangling call is what an INTERRUPTED or ERRORED turn produces - a timeout, a 400, a killed subagent - and that run had none. Measuring clean traffic to judge a guard that exists for the non-clean case is the wrong instrument. These two cases are MUTATION DETECTORS over the code, not distribution samples: what they buy is that deleting a disjunct fails the gate. Real-world frequency of the shape is a separate question and is currently 0/182.",
+   "expect": {
+    "head": 1,
+    "start": 1,
+    "fki": 5,
+    "cut": 4,
+    "span": 4500,
+    "pinch": 0,
+    "inch": 14400,
+    "inpin": 0,
+    "outcome": "ok",
+    "step_len": 8,
+    "step_chars": 10872,
+    "step_pins": 0,
+    "run_len": 8,
+    "run_chars": 10872,
+    "run_pins": 0
+   }
+  }
+ ]
+}
