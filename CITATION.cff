@@ -1,0 +1,46 @@
+cff-version: 1.2.0
+title: >-
+  Rolling Context — verified context compression for LLM sessions,
+  with a Lean 4 formalization
+message: >-
+  If you use this software or refer to its formalization in academic work,
+  please cite it using the metadata below.
+type: software
+authors:
+  - given-names: Saimono
+    alias: Saimonokuma
+    affiliation: Nova-Violet Role
+repository-code: >-
+  https://github.com/Nova-Violet-Role/claude-rolling-context-Lean-4-
+url: https://github.com/Nova-Violet-Role
+abstract: >-
+  A transparent proxy that gives LLM coding sessions rolling context
+  compression: older messages are replaced by a model-written summary while
+  recent messages remain verbatim, so a session's input cost grows linearly
+  rather than quadratically and the context window is never exhausted.
+
+  The compression policy is formalized in Lean 4 — 157 machine-checked
+  theorems with no `sorry`. The central result, pinned_never_cut, establishes
+  that for any conversation, any policy, and any number of compression rounds,
+  the pinned messages that come out are exactly the pinned messages that went
+  in. Retention is structural rather than a request made of the summarizing
+  model. Two companion theorems complete the guarantee: run_shrinks (the
+  result is never larger than the input) and run_fixpoint (iteration strictly
+  decreases and halts).
+
+  The development is mutation-tested, which distinguishes theorems that
+  constrain behaviour from those that are merely true: of 116 theorems in the
+  compressor module, 102 are load-bearing under 66 injected mutations.
+
+  Ships as a Claude Code plugin and as a port to the Mistral Vibe CLI.
+keywords:
+  - formal verification
+  - Lean 4
+  - theorem proving
+  - context compression
+  - large language models
+  - mutation testing
+  - proxy
+license: AGPL-3.0-or-later
+license-url: >-
+  https://github.com/Nova-Violet-Role/claude-rolling-context-Lean-4-/blob/master/NOTICE

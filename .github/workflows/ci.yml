@@ -1,0 +1,136 @@
+# CI for claude-rolling-context-Lean-4-
+#
+# WHAT THIS CHECKS, AND WHAT IT DELIBERATELY DOES NOT
+#
+# Checked here, because it is hermetic — it depends only on the checkout:
+#   - the Lean 4 development compiles (`lake build`), which is the real claim:
+#     157 theorems, machine-checked
+#   - no `sorry` survives anywhere in the proofs
+#   - every published Python file parses
+#
+# NOT checked here, and the omission is deliberate rather than an oversight:
+#   `check-compressor-drift.py` runs seven phases, and phase [4/7] reads the
+#   LIVE `~/.vibe/config.toml` of the machine it runs on to confirm the installed
+#   thresholds are correctly ordered. In CI there is no such install. We could
+#   synthesise a config file to make the phase pass — and that is exactly why we
+#   do not: the phase would then be checking a fixture we wrote in this workflow,
+#   and would report green regardless of what any real installation contains.
+#   A green tick that cannot fail is worse than no tick.
+#
+#   That gate therefore remains a LOCAL pre-release gate, run against a real
+#   install. See CONTRIBUTING.md.
+
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lean:
+    name: Lean proofs (lake build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan (Lean toolchain manager)
+        run: |
+          curl -sSfL https://github.com/leanprover/elan/releases/latest/download/elan-x86_64-unknown-linux-gnu.tar.gz \
+            | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Cache mathlib build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            vibe/lean/.lake
+            ~/.cache/mathlib
+          key: lean-${{ runner.os }}-${{ hashFiles('vibe/lean/lean-toolchain', 'vibe/lean/lakefile.toml') }}
+          restore-keys: lean-${{ runner.os }}-
+
+      # Mathlib from source takes hours; the prebuilt cache takes minutes.
+      # `|| true` because a cache miss is not a build failure — lake will simply
+      # compile what it needs.
+      - name: Fetch prebuilt mathlib cache
+        working-directory: vibe/lean
+        run: |
+          lake exe cache get || true
+
+      - name: Build all proofs
+        working-directory: vibe/lean
+        run: lake build
+
+      # `lake build` succeeds on a file full of `sorry` — Lean reports those as
+      # warnings, not errors. Without this step the proof job is decorative.
+      - name: Assert zero `sorry`
+        run: |
+          if grep -rn --include='*.lean' '\bsorry\b' vibe/lean/Proofs/; then
+            echo "::error::a proof contains 'sorry' — the development is incomplete"
+            exit 1
+          fi
+          echo "no 'sorry' found across $(ls vibe/lean/Proofs/*.lean | wc -l) proof files"
+
+      - name: Report theorem count
+        run: |
+          total=$(grep -chE '^\s*(theorem|lemma)\s' vibe/lean/Proofs/*.lean | paste -sd+ | bc)
+          echo "### Lean development" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| file | theorems |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|:--|--:|" >> "$GITHUB_STEP_SUMMARY"
+          for f in vibe/lean/Proofs/*.lean; do
+            echo "| \`$(basename "$f")\` | $(grep -cE '^\s*(theorem|lemma)\s' "$f") |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "| **total** | **$total** |" >> "$GITHUB_STEP_SUMMARY"
+
+  python:
+    name: Python syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Every published Python file parses
+        run: |
+          python -m compileall -q vibe/ proxy/ tests/ 2>&1 | tee /tmp/compile.log
+          if grep -q "Error" /tmp/compile.log; then exit 1; fi
+          echo "all Python sources parse"
+
+  secrets:
+    name: No secrets committed
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # The proxy derives a 256-bit HMAC pin secret into state/pin-secret at
+      # first run. It is gitignored, but an ignore rule is a convention and this
+      # is an assertion — if one is ever force-added, the build fails loudly
+      # rather than the key living in history unnoticed.
+      - name: Assert no bare 64-hex key files
+        run: |
+          found=$(git ls-files | while read -r f; do
+            if [ -f "$f" ] && [ "$(wc -c < "$f")" -le 80 ] \
+               && grep -qE '^[0-9a-f]{64}$' "$f" 2>/dev/null; then echo "$f"; fi
+          done)
+          if [ -n "$found" ]; then
+            echo "::error::possible secret committed:"; echo "$found"; exit 1
+          fi
+          echo "no bare 64-hex key files tracked"
+
+      - name: Assert runtime state is not tracked
+        run: |
+          if git ls-files | grep -E '(^|/)state/(pin-secret|proxy\.pid)$'; then
+            echo "::error::runtime state is tracked"; exit 1
+          fi
+          echo "no runtime state tracked"

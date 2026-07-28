@@ -1,6 +1,6 @@
 # Rolling Context for Claude Code
 
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE) [![License: EUPL 1.2](https://img.shields.io/badge/License-EUPL_1.2-1f4e79.svg)](LICENSE.EUPL-1.2)
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org)
 ![Zero Dependencies](https://img.shields.io/badge/dependencies-zero-orange.svg)
 

@@ -1,6 +1,6 @@
 /-
 Copyright (c) 2026 Saimono. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
+Released under AGPL-3.0-or-later OR EUPL-1.2; see NOTICE at the repository root.
 Authors: Saimono
 -/
 
