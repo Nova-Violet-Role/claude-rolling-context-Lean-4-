@@ -12,6 +12,43 @@ A transparent proxy that gives Claude Code **rolling context compression** — o
 
 It's also a cost story: every token you carry in context gets re-billed on **every turn** (at cache-read rates), so an unmanaged session's input cost grows with the *square* of its length. Capping the prefix makes it linear — [the math](#the-economics-why-capping-the-prefix-matters) works in relative units and holds for every model, and it matters more the bigger the context window, not less.
 
+## Also in this repository
+
+| | |
+|:--|:--|
+| **[`vibe/`](vibe/)** | A port of this proxy to the **Mistral Vibe CLI**, with an eight-agent routed crew. Separate directory, separate target — nothing under `proxy/` is modified by it. |
+| **[`vibe/lean/`](vibe/lean/)** | A **Lean 4 formalization** of the compression policy: 157 theorems, zero `sorry`. See *The Theorem of Nova & Violet* below. |
+| **[`vibe/vendored-upstream/`](vibe/vendored-upstream/)** | The exact upstream files the port forked from, so its divergence can be read as a diff instead of guessed at. |
+
+### The Theorem of Nova & Violet
+
+**What is pinned is never cut.** For *any* conversation, *any* policy — hence any
+summarizer, any keep ratio, any trigger — and *any* number of compression rounds, the
+pinned messages that come out are exactly the pinned messages that went in.
+
+```lean
+theorem pinned_never_cut (p : Policy) (c : Conv) :
+    ((run p c).filter effectivePinned).map pinExtract
+      = (c.filter effectivePinned).map pinExtract
+```
+
+Retention is not a request made of a model. Pinned messages are carried across the summary
+boundary structurally — the same way the system prefix is — and are never inside the
+replaced span. Two companions complete it:
+
+```lean
+theorem run_shrinks   (p : Policy) (c : Conv) : countChars (run p c) ≤ countChars c
+theorem run_fixpoint  (p : Policy) (c : Conv) : ∃ r, stepE p (run p c) = .error r
+```
+
+**Shrinks** — never larger than the input. **Converges** — iteration strictly decreases and
+halts. **Preserves** — what you pinned is still there. Compression that shrinks but loses
+what matters is worthless; compression that preserves but never converges is a hang. The
+guarantee is the conjunction.
+
+Verified with `lake build`, and mutation-tested — so we know which theorems constrain
+behaviour rather than merely being true.
+
 ## `/compact` vs Rolling Context
 
 | | `/compact` (built-in) | Rolling Context |
