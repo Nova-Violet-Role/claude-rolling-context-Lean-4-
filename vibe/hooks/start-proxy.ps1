@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Saimono / Nova-Violet Role
+# SPDX-License-Identifier: AGPL-3.0-or-later OR EUPL-1.2
+
 # Ensure the vibe rolling-context proxy is running (Windows).
 # Pure stdlib on the Python side — no venv needed.
 #

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Saimono / Nova-Violet Role
+# SPDX-License-Identifier: AGPL-3.0-or-later OR EUPL-1.2
+
 """Fail when compressor.py and Compressor.lean stop describing the same thing.
 
 WHY THIS EXISTS

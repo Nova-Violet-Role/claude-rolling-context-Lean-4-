@@ -1,3 +1,7 @@
+/-
+SPDX-FileCopyrightText: 2026 Saimono / Nova-Violet Role
+SPDX-License-Identifier: AGPL-3.0-or-later OR EUPL-1.2
+-/
 import Proofs.Compressor
 open Compressor
 #print axioms shipped_tag_kind_confusion

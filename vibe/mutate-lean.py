@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Saimono / Nova-Violet Role
+# SPDX-License-Identifier: AGPL-3.0-or-later OR EUPL-1.2
+
 """Mutation-test Compressor.lean, attributing CASCADES correctly.
 
 The naive version of this script asked "which line did Lean report an error on".

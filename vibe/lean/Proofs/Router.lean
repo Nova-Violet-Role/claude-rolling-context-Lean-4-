@@ -1,6 +1,8 @@
 /-
 Copyright (c) 2026 Saimono. All rights reserved.
-Released under AGPL-3.0-or-later OR EUPL-1.2; see NOTICE at the repository root.
+SPDX-FileCopyrightText: 2026 Saimono / Nova-Violet Role
+SPDX-License-Identifier: AGPL-3.0-or-later OR EUPL-1.2
+See NOTICE.md at the repository root for the full licence map.
 Authors: Saimono
 -/
 

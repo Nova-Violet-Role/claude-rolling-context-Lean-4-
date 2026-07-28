@@ -83,7 +83,7 @@ proposing a release.
 **Do not modify `proxy/`, `hooks/`, `tests/`, or the installers unless your change is
 specifically about them.** Those files are upstream's, under MIT, and are deliberately
 kept byte-identical so that changes flow cleanly in both directions. Work belonging to
-this project goes in `vibe/`. See [NOTICE](NOTICE).
+this project goes in `vibe/`. See [NOTICE.md](NOTICE.md).
 
 ## Licensing of contributions
 

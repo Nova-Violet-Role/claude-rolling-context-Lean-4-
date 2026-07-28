@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Saimono / Nova-Violet Role
+# SPDX-License-Identifier: AGPL-3.0-or-later OR EUPL-1.2
+
 """
 Rolling Context Compressor
 
