@@ -5,3 +5,7 @@ __pycache__/
 *.egg-info/
 .env
 test/
+
+# vibe port: runtime state (pin-secret, pid, version) and editor backups
+state/
+*.bak
